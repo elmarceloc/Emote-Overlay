@@ -1,4 +1,5 @@
-let debug = false;
+let debug = true;
+
 function log(message) {
     if (debug) {
         console.log(message);
@@ -21,7 +22,8 @@ function getUrlParam(parameter, defaultvalue) {
     return urlparameter;
 }
 
-let channel = getUrlParam("channel", "abc123").toLowerCase();
+let logChannel = getUrlParam("notfijxu", "notfijxu").toLowerCase();
+let channel = getUrlParam("channel", "cristianghost").toLowerCase();
 log(channel);
 let emotes = [];
 
@@ -53,79 +55,58 @@ async function getEmotes(check) {
     res = await fetch(proxyurl + "https://api.frankerfacez.com/v1/room/" + channel, {
         method: "GET",
     }).then(returnResponse, logError);
+
     if (!res.error) {
-        let setName = Object.keys(res.sets);
-        for (var k = 0; k < setName.length; k++) {
-            for (var i = 0; i < res.sets[setName[k]].emoticons.length; i++) {
-                const emoteURL = res.sets[setName[k]].emoticons[i].urls["2"] ? res.sets[setName[k]].emoticons[i].urls["2"] : res.sets[setName[k]].emoticons[i].urls["1"];
-                let emote = {
-                    emoteName: res.sets[setName[k]].emoticons[i].name,
-                    emoteURL: "https://" + emoteURL.split("//").pop(),
-                };
-                emotes.push(emote);
-            }
-        }
+        addFFZemotes(res.sets)
     } else {
         totalErrors.push("Error getting ffz emotes");
     }
+
     // get all global ffz emotes
     res = await fetch(proxyurl + "https://api.frankerfacez.com/v1/set/global", {
         method: "GET",
     }).then(returnResponse, logError);
     if (!res.error) {
-        let setName = Object.keys(res.sets);
-        for (var k = 0; k < setName.length; k++) {
-            for (var i = 0; i < res.sets[setName[k]].emoticons.length; i++) {
-                const emoteURL = res.sets[setName[k]].emoticons[i].urls["2"] ? res.sets[setName[k]].emoticons[i].urls["2"] : res.sets[setName[k]].emoticons[i].urls["1"];
-                let emote = {
-                    emoteName: res.sets[setName[k]].emoticons[i].name,
-                    emoteURL: "https://" + emoteURL.split("//").pop(),
-                };
-                emotes.push(emote);
-            }
-        }
+        addFFZemotes(res.sets)
     } else {
         totalErrors.push("Error getting global ffz emotes");
     }
+
     // get all BTTV emotes
     res = await fetch(proxyurl + "https://api.betterttv.net/3/cached/users/twitch/" + twitchID, {
         method: "GET",
     }).then(returnResponse, logError);
     if (!res.message) {
-        for (var i = 0; i < res.channelEmotes.length; i++) {
-            let emote = {
-                emoteName: res.channelEmotes[i].code,
-                emoteURL: `https://cdn.betterttv.net/emote/${res.channelEmotes[i].id}/2x`,
-            };
-            emotes.push(emote);
-        }
-        for (var i = 0; i < res.sharedEmotes.length; i++) {
-            let emote = {
-                emoteName: res.sharedEmotes[i].code,
-                emoteURL: `https://cdn.betterttv.net/emote/${res.sharedEmotes[i].id}/2x`,
-            };
-            emotes.push(emote);
-        }
+        addBttvEmotes(res.channelEmotes)
+        addBttvEmotes(res.sharedEmotes)
         log(emotes);
     } else {
         totalErrors.push("Error getting bttv emotes");
     }
+
     // global bttv emotes
     res = await fetch(proxyurl + "https://api.betterttv.net/3/cached/emotes/global", {
         method: "GET",
     }).then(returnResponse, logError);
     if (!res.message) {
-        for (var i = 0; i < res.length; i++) {
-            let emote = {
-                emoteName: res[i].code,
-                emoteURL: `https://cdn.betterttv.net/emote/${res[i].id}/2x`,
-            };
-            emotes.push(emote);
-        }
+        addBttvEmotes(res)
         log(emotes);
     } else {
         totalErrors.push("Error getting global bttv emotes");
     }
+
+    // booyah tv emotes
+    res = await fetch(proxyurl + "https://bapi.zzls.xyz/api/emotes/" + channel, {
+        method: "GET",
+    }).then(returnResponse, logError);
+    if (!res.message) {
+        addBooyahtvEmotes(res)
+        log(emotes);
+    } else {
+        totalErrors.push("Error getting booyah tv emotes");
+    }
+
+    // seven 7v emotes
     if (sevenTVEnabled == 1) {
         // get all 7TV emotes
         res = await fetch(proxyurl + `https://api.7tv.app/v2/users/${channel}/emotes`, {
@@ -154,13 +135,7 @@ async function getEmotes(check) {
             if (res.Status === 404) {
                 totalErrors.push("Error getting 7tv global emotes");
             } else {
-                for (var i = 0; i < res.length; i++) {
-                    let emote = {
-                        emoteName: res[i].name,
-                        emoteURL: res[i].urls[1][1],
-                    };
-                    emotes.push(emote);
-                }
+                addSeventvEmotes(res)
             }
         } else {
             totalErrors.push("Error getting 7tv global emotes");
@@ -236,7 +211,7 @@ function streakEvent() {
         $("#main").css("left", "35");
         var img = $("<img />", { src: currentStreak.emoteURL });
         img.appendTo("#main");
-        var streakLength = $("#main").append(" 󠀀  󠀀  x" + currentStreak.streak + " streak!");
+        var streakLength = $("#main").append(" 󠀀  󠀀  x" + currentStreak.streak);
         streakLength.appendTo("#main");
         gsap.to("#main", 0.15, { scaleX: 1.2, scaleY: 1.2, onComplete: downscale });
         function downscale() {
@@ -327,6 +302,52 @@ function showEmoteEvent(emote) {
     }
 }
 
+function addEmote(name, url){
+    let emote = {
+        emoteName: name,
+        emoteURL: url,
+    };
+    emotes.push(emote);
+}
+
+function addFFZemotes(sets){
+    let setName = Object.keys(sets);
+    for (var k = 0; k < setName.length; k++) {
+        for (var i = 0; i < sets[setName[k]].emoticons.length; i++) {
+            const emoteURL = sets[setName[k]].emoticons[i].urls["2"] ? sets[setName[k]].emoticons[i].urls["2"] : sets[setName[k]].emoticons[i].urls["1"];
+  
+            addEmote(sets[setName[k]].emoticons[i].name, "https://" + emoteURL.split("//").pop())
+        }
+    }
+}
+
+function addBttvEmotes(group){
+    for (var i = 0; i < group.length; i++) {
+        addEmote(group[i].code, `https://cdn.betterttv.net/emote/${group[i].id}/2x`)
+    }
+}
+
+function addSeventvEmotes(group){
+    for (var i = 0; i < group.length; i++) {
+        addEmote( group[i].name, group[i].urls[1][1])
+    }
+}
+
+function addBooyahtvEmotes(res){
+    for (var i = 0; i < res.emotes.length; i++) {
+        switch (res.emotes[i].source) {
+            case 'bttv':
+                addEmote(res.emotes[i].name, `https://cdn.betterttv.net/emote/${res.emotes[i].id}/2x`)
+                break;
+        
+            case 'ffz':
+                addEmote(res.emotes[i].name, `https://cdn.frankerfacez.com/emoticon/${res.emotes[i].id}/4`)
+                break;
+            //TODO: add 7tv
+        }
+    }
+}
+
 // Connecting to twitch chat
 function connect() {
     const chat = new WebSocket("wss://irc-ws.chat.twitch.tv");
@@ -340,7 +361,7 @@ function connect() {
         chat.send("CAP REQ :twitch.tv/tags twitch.tv/commands twitch.tv/membership");
         chat.send("PASS oauth:xd123");
         chat.send("NICK justinfan123");
-        chat.send("JOIN #" + channel);
+        chat.send("JOIN #" + logChannel);
         getEmotes();
     };
 
@@ -354,7 +375,7 @@ function connect() {
         let messageFull = event.data.split(/\r\n/)[0].split(`;`);
         log(messageFull);
         if (messageFull.length > 12) {
-            let messageBefore = messageFull[messageFull.length - 1].split(`${channel} :`).pop(); // gets the raw message
+            let messageBefore = messageFull[messageFull.length - 1].split(`${logChannel} :`).pop(); // gets the raw message
             let message = messageBefore.split(" ").includes("ACTION") ? messageBefore.split("ACTION ").pop().split("")[0] : messageBefore; // checks for the /me ACTION usage and gets the specific message
             if (message.toLowerCase().startsWith("!showemote") || message.toLowerCase().startsWith("!#showemote")) {
                 showEmote(message, messageFull);
